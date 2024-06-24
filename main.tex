@@ -56,7 +56,7 @@ $^{4}$ \quad Laboratory of Regional Climate-Environment Research for Temperate E
 \corres{Correspondence: zhenghui@tea.ac.cn}
 
 % Abstract (Do not insert blank lines, i.e. \\)
-\abstract{River network routing is fundamental for flood forecasting but becomes computationally demanding with networks comprising thousands to millions of reaches. The sequential nature of upstream-to-downstream flow paths within river networks poses a significant challenge for parallel computation. This study introduces a family of stream orders coupled with an order-based parallel routing approach. We assign each reach an order that falls between one more than the maximum order of its upstream reaches and one less than the order of its downstream reach. This strategy enables parallel simulation of reaches with identical orders while sequentially processing those with different orders, thus maintaining the crucial upstream-to-downstream dynamic. To further enhance parallel scalability, we strategically relax the upstream-to-downstream relationship along the longest flow paths, dividing the network into independent subnetworks and introducing halo reaches to mitigate the impact of inexact inflows. We validate our approach using China's Yangtze River basin, the country's largest river network with 53,600 fully connected reaches. Employing a conceptual parallel execution machine, we demonstrate that our method achieves 80\% parallel efficiency with up to 25 processors. By strategically introducing breakpoints, we further enhance scalability, enabling efficient simulations on 77 processors while maintaining 80\% efficiency. These results highlight the scalability and efficiency of our methods for large-scale, high-resolution river network modeling within Earth system models. Our study also lays a theoretical groundwork for optimizing stream orders and halo reach placements, crucial for advancing river network modeling.}
+\abstract{River network routing's significance in reach-level flood forecasting over extensive domains is growing, requiring considerable computational resources for modeling networks comprising thousands to millions of reaches. Parallel computation plays a central role in timely forecasting in such cases. However, the sequential nature of upstream-to-downstream flow paths within river networks poses a significant challenge for parallelization. This study introduces a family of stream orders coupled with an order-based parallel routing approach. We assign each reach an order that falls between one more than the maximum order of its upstream reaches and one less than the order of its downstream reach. This strategy enables the parallel simulation of reaches with identical orders while sequentially processing those with different orders, thus maintaining the crucial upstream-to-downstream dynamic. To further enhance parallel scalability, we strategically relax the upstream-to-downstream relationship along the longest flow paths, dividing the network into independent subnetworks and introducing halo reaches to mitigate the impact of inexact inflows. We validate our approach using China's Yangtze River basin, the country's largest river network with 53,600 fully connected reaches. Employing a conceptual parallel execution machine, we demonstrate that our method achieves 80\% parallel efficiency with up to 25 processors. By strategically introducing breakpoints, we further enhance scalability, enabling efficient simulations on 77 processors while maintaining 80\% efficiency. These results highlight the scalability and efficiency of our methods for large-scale, high-resolution river network modeling within Earth system models. Our study also lays a theoretical groundwork for optimizing stream orders and halo reach placements, crucial for advancing river network modeling.}
 
 % Keywords
 \keyword{stream order; river network routing; parallel computing; flood}
@@ -67,46 +67,108 @@ $^{4}$ \quad Laboratory of Regional Climate-Environment Research for Temperate E
 
 \section{Introduction}
 
-River networks play an essential role in the terrestrial water cycle~\cite{trenberth2007JHM}. They serve as the primary conveyance systems for water, linking terrestrial and aquatic ecosystems, and facilitating the transport of water, sediment, nutrients, and pollutants across diverse landscapes~\cite{dai2002JHM, dai2009JC, regnier2022N, sohail2022N, liu2019NC, li2019JAMES, aufdenkampe2011FEE}. The representation of river network routing is a critical component in the development and refinement of land surface models and Earth system models~\cite{david2016ESS}. The fidelity with which land surface models or Earth system models capture the spatial and temporal dynamics of river networks directly influences the models' ability to simulate key hydrological processes, such as evapotranspiration, infiltration, and runoff~\cite{senatore2015JAMES, wagner2016WRR}. Moreover, the routing of water through river networks is a critical control on the timing and magnitude of floods~\cite{lin2018JHM, alfieri2013HESS}. As such, the inclusion of the detailed, fine-scale river network routing is not only vital for improving our understanding of the terrestrial water cycle but also for informing flood defense in regions where flood risk is a pressing concern~\cite{willner2018NCC}.
+River network routing has become increasingly essential for flood forecasting at the reach level over large domains, such as entire nations or even globally, as demonstrated by various studies~\cite{alfieri2013HESS, david2016ESS, maidment2017JAWRA, lin2018JHM, read2023JAWRA}. The National Water Model of the United States stands out as a successful example. It has been operational since 2016, providing flood forecasts for millions of reaches across the country. Its forecasts have effectively guided emergency responses during Hurricane Harvey~\cite{maidment2017JAWRA, read2023JAWRA}. The Global Flood Awareness System is another significant example. Its forecasts cover the entire globe, including data-scarce regions. The forecasts have demonstrated their value for targeted humanitarian disaster prevention actions in countries such as Uganda~\cite{alfieri2013HESS, coughlan_de_perez2016HESS}. More large-domain flood forecasting systems that leverage river network routing are actively being developed worldwide, including the recently established European-wide Flood Early Warning System~\cite{najafi2024NC, thober2019GMD}.
 
-Land surface models and Earth system models strive to capture the intricate details of river networks~\cite{lehner2013HP, yamazaki2019WRR, chaney2021GMD} over large domains, such as entire nations or the globe~\cite{yang2021BAMS, lin2019WRR, wu2012WRR, alfieri2013HESS}. Fine-scale river network routing, which requires short river reaches and frequent time-stepping, is crucial for accurately simulating water flow through the complex channels of a river network. This level of detail is crucial for resolving small-scale features and processes that can significantly impact larger-scale river water flow patterns~\cite{yamazaki2009HESS, thober2019GMD, mizukami2021JAMES, nguyen-quang2018GMD} and is essential for action-based flood forecasting~\cite{wada2016JAMES, coughlan_de_perez2016HESS}. The computational demand associated with the fine-scale river network routing over a large domain is substantial~\cite{yamazaki2013WRR, liu2014EMS, mizukami2021JAMES, david2015WRR, liu2023JH}. Moreover, the integration of fine-scale river routing with other model components, such as nutrient transport and human water use ~\cite{wada2016JAMES}, further compounds the computational load. As a result, researchers and model developers must balance the desire for high-fidelity river network representation with the practical constraints of computational feasibility. The ongoing advancements in high-performance computing and the development of more sophisticated numerical methods are key to addressing these computational challenges~\cite{yamazaki2013WRR, liu2014EMS, mizukami2021JAMES, david2015WRR, liu2023JH} and enabling the next generation of Earth system models and land surface models to incorporate large-domain fine-scale river network routing effectively.
+River network routing in flood forecasts is urgently focusing on shorter reaches~\cite{maidment2017JAWRA, coughlan_de_perez2016HESS, najafi2024NC, wada2016JAMES}. The use of shorter reaches and the accompanying frequent time-stepping is crucial for resolving fine-scale features and processes that significantly impact larger-scale river water flow patterns~\cite{yamazaki2009HESS, thober2019GMD, mizukami2021JAMES, nguyen-quang2018GMD}. This resolution of fine-scale water flow features within the river network enables local flood impact assessments to be highly relevant to individual people and infrastructures. These assessments are essential, providing targeted information instrumental for effective disaster prevention and response actions~\cite{maidment2017JAWRA, coughlan_de_perez2016HESS}.
 
-The implementation of parallel processing in river network routing is essential for enhancing the performance of large-domain fine-scale simulations. However, this approach introduces considerable challenges. A primary concern stems from the inherently distributed structure of river networks, where numerous tributaries and river segments are intricately interconnected. This necessitates advanced data management protocols and parallel computation strategies to facilitate accurate information exchange regarding water flow dynamics between different segments of the river network~\cite{liu2023JH}. It is imperative that this information exchange preserves the integrity of the upstream-to-downstream flow sequence, as the flow in any given segment is contingent upon the flow conditions in its upstream segments. Parallelization must respect this sequential dependency to ensure that the simulation outcomes are physically plausible and precise~\cite{david2013WRR, mizukami2021JAMES, liu2014EMS, liu2023JH}.
+Large-domain and fine-scale river network routing demands substantial computational resources~\cite{yamazaki2013WRR, liu2014EMS, mizukami2021JAMES, david2015WRR, liu2023JH}. Considering the constraints imposed by limited computational resources, flood forecasting systems must balance the need for detailed fine-scale modeling over broad domains with the necessity of timely forecasts. To reconcile these competing demands, the implementation of parallel processing in river network routing is essential. Parallel processing is crucial for enhancing computational efficiency and directly contributes to meeting the timeliness requirements of flood forecasts.
 
-The inherent sequential nature of river flow significantly impedes the development of efficient and scalable parallel processing methods for river network routing. Furthermore, the spatial variability within river networks, marked by differences in channel widths, slopes, and flow velocities, adds to the complexity of parallelization. This variability necessitates dynamic load balancing techniques to prevent computational resources from being underutilized or overburdened. The development of robust parallel schemes is therefore critical to accommodate the diverse scales and dynamics inherent to river networks, without compromising the fidelity or reliability of the model's projections.
+However, the parallelization of river network routing presents considerable challenges, primarily due to the inherent sequential nature of the river flow from upstream to downstream within the networks. The flow in any given reach is dependent on the flow conditions in its upstream reaches. It is imperative that a parallel routing algorithm respects this upstream-to-downstream dependency. When this dependency is a constraint, the parallel routing needs to revert to a sequential approach from upstream to downstream. Additionally, the spatial variability within river networks, marked by differences in channel widths, slopes, and flow velocities, adds to the complexity of parallelization. This variability necessitates dynamic load balancing techniques to prevent computational resources from being underutilized or overburdened. Consequently, it is critical to develop robust parallel algorithms that can accommodate the diverse dynamics and inherent sequentiality within river networks effectively, ensuring that simulation results are physically plausible and accurate~\cite{david2013WRR, mizukami2021JAMES, liu2014EMS, liu2023JH}.
 
-Various methods exist for parallelizing river network routing, such as domain decomposition~\cite{mizukami2021JAMES, liu2023JH} and halo reaches~\cite{david2013WRR}. Domain decomposition involves partitioning river networks into independent tributaries and interconnected mainstreams. The tributaries are then allocated to various processors for concurrent simulation, while the mainstreams are processed in an upstream-to-downstream sequence. However, the parallelization scalability is limited. As the number of processors increases, the distribution of reaches within the tributaries diminishes, and the mainstream reaches become more dominant~\cite{mizukami2021JAMES}. In an extreme scenario with an infinite number of processors, the majority of river reaches would be classified as mainstreams, effectively rendering the routing process predominantly sequential.
+Several parallelization methods exist, such as domain decomposition~\cite{mizukami2021JAMES, liu2023JH} and halo reaches~\cite{david2013WRR}. Domain decomposition involves partitioning river networks into independent tributaries and interconnected mainstreams. The tributaries are then allocated to various processors for concurrent simulation, while the mainstreams are processed in an upstream-to-downstream sequence. However, the parallelization scalability is limited. As the number of processors increases, the distribution of reaches within the tributaries diminishes, and the mainstream reaches become more dominant~\cite{mizukami2021JAMES}. In an extreme scenario with an infinite number of processors, the majority of river reaches would be classified as mainstreams, effectively rendering the routing process predominantly sequential.
 
-With the halo-reach method, the river network is divided into independent subnetworks, each of which is simulated in parallel without maintaining an upstream-to-downstream relationship at their boundaries~\cite{david2015WRR}. To mitigate the inaccuracies arising from this division, halo reaches are prepended upstream of each subnetwork. These halo reaches serve to buffer the impact of boundary inexactitudes. This strategy offers scalability and efficiency, although careful configuration of the halo reaches is essential to ensure simulation accuracy~\cite{david2013WRR}.
+With the halo-reach method, the river network is divided into independent subnetworks, each of which is simulated in parallel without maintaining an upstream-to-downstream relationship at their boundaries~\cite{david2015WRR}. To mitigate the inaccuracies arising from this artificial division, halo reaches are prepended upstream of each subnetwork. These halo reaches serve to buffer the impact of boundary inexactitudes. This strategy offers scalability and efficiency, although careful configuration of the halo reaches is essential to ensure simulation accuracy~\cite{david2013WRR}.
 
-We introduce a family of stream orders and utilize a parallel strategy termed stream order-based parallelism in this study. This approach involves categorizing river reaches into groups based on similar stream orders. Reaches within the same order group are simulated in parallel, while those of different orders are processed sequentially. This method is designed to achieve both parallel scalability and simulation precision, strictly maintaining the upstream-to-downstream flow hierarchy. Compared to domain decomposition, this method demonstrates superior parallel scalability. In the theoretical case of infinite processors, computation time would approximate that of sequential routing along the longest flow path. Furthermore, this method can be effectively combined with the halo-reach strategy, with a few strategically placed halo reaches on the main flow path to enhance parallel scalability. The efficacy of these methods has been validated through testing in the Yangtze River basin and mainland China, confirming their scalability and efficiency.
+In this paper, we introduce a stream ordering method and an order-based parallel routing approach to address the challenges of parallel river network routing. Our method sets itself apart from the halo-reach method through its strict adherence to the upstream-to-downstream sequentiality, ensuring that simulations are both physically plausible and accurate. Incorporating parallel scalability as a core design principle, our method is exceptionally efficient. In an ideal scenario with unlimited processors, the computation time of our method would closely match that of sequential routing along the river's longest path, significantly outperforming the domain-decomposition method previously discussed.
 
-The structure of this paper is as follows: Section \ref{sec:methods} elaborates on the proposed stream ordering methods and the order-based parallel routing technique. Section \ref{sec:domain} outlines the study area and the river network geometry dataset utilized. Section \ref{sec:results} presents the outcomes of applying the proposed methods. Finally, Section \ref{sec:conclusions} summarizes the findings and discusses their implications.
+The structure of this paper is as follows: Section \ref{sec:methods} details our proposed stream ordering and order-based parallel routing methods. These methods are tested in the Yangtze River basin, the largest river basin in China. Section \ref{sec:domain} describes the study area and the river network geometry dataset used. Section \ref{sec:results} presents an analysis of the parallel scalability and efficiency of our method. Finally, Section \ref{sec:conclusions} summarizes our findings.
 
 \section{Stream Orders and Parallel River Network Routing}
 \label{sec:methods}
 
+Our parallel river network routing method encompasses two key components. The first is the stream ordering method, which systematically assigns an order to each reach within the network based on its connectivity and flow direction. The second is the order-based parallel routing approach, which enables parallel simulation of reaches that share the same order, while reverting to sequential processing for those of different orders. Section~\ref{sec:stream_order} introduces the stream ordering method, Section~\ref{sec:comparison} briefly compares the proposed method with existing methods, and Section~\ref{sec:parallel_machine} details the order-based parallel routing approach.
+
 \subsection{A Family of Stream Orders Designed for Parallel River Routing}
 \label{sec:stream_order}
 
-Our research is inspired by several foundational studies. The mizuRoute river network routing model, for instance, employs the Strahler stream order to segment mainstreams into branches~\cite{mizukami2021JAMES}. Within each branches, reaches are sequentially simulated from upstream to downstream, while branches of the same Strahler order are processed in parallel. This approach underscores the potential of order-based parallelism. However, the Strahler order categorizes branches rather than individual reaches, which results in a granularity too coarse for efficient parallel routing. The disparity in the number of branches across Strahler orders and in the number of reaches in a branch introduces significant variability in the computational load, posing a considerable challenge for load balancing and scalable parallel processing.
+\Cref{tab:zheng_order} describes the proposed stream ordering method, and \Cref{fig:zheng_order} illustrates the method using a simple synthetic river network. The methods consist of two rules: (1) a reach's order falls within an integer range that is one more than the highest order of its upstream reaches and one less than the order of its downstream reach, and (2) the order value is an integer range from one up to the number of the reaches along the longest flow path within all the river networks under examination. This ordering ensures that reaches with identical orders are free from upstream-downstream dependencies, allowing for parallel processing.
+
+The two ordering rules allow a spectrum of feasible stream order values. The lower and upper bounds of the feasible values for each reach can be estimated as follows, as described in \Cref{tab:zheng_order} and illustrated in \Cref{fig:zheng_order}a--b. The lower bounds are calculated by repeating the following two steps: (1) assigning the upmost reaches an order of one, and (2) setting a reach's order to one plus the highest upstream order. Conversely, the upper bounds are determined by: (1) designating the outlet reach an order equivalent to the number of reaches along the longest flow path, and (2) subtracting one from the downstream reach's order.
+
+\begin{table}[H]
+    \caption{The proposed methods of stream ordering and the upper and lower limits of the feasible stream order values. The Strahler and Shreve orders are included for comparison.\label{tab:zheng_order}}
+    \newcolumntype{C}{>{\centering\arraybackslash}m{32em}}
+    \newcolumntype{c}{>{\centering\arraybackslash}m{10em}}
+    \begin{tabularx}{\textwidth}{c C}
+        \toprule
+        \textbf{Ordering Method}                   & \textbf{Rules of Ordering}
+        \\
+        \midrule
+
+        The proposed stream ordering method        & \begin{enumerate}
+                                                         \item A reach's order ranges from the maximum of its upstream orders plus one and one less than the minimum of its downstream orders.
+                                                         \item The order value is an integer range from one up to the number of the reaches along the longest flow path within all the river networks under examination. In other words, the order of the uppermost reaches is at least one, while the order of the outlet reaches is at most the total number of reaches along the longest flow path.
+                                                     \end{enumerate}
+        \\
+        Lower limit of the feasible stream order values,
+        as illustrated in \Cref{fig:zheng_order}a. & \begin{enumerate}
+                                                         \item The uppermost reaches are assigned an order of one.
+                                                         \item The order of the remaining reaches in the networks is one plus the highest order of their upstream reaches.
+                                                     \end{enumerate}
+        \\
+        Upper limit of the feasible stream order values,
+        as illustrated in \Cref{fig:zheng_order}b. & \begin{enumerate}
+                                                         \item Outlet reaches are assigned an order equivalent to the number of reaches along the longest flow path.
+                                                         \item The order of the remaining reaches is one less than the order of their downstream reach.
+                                                     \end{enumerate}
+        \\
+        The Strahler stream ordering method,
+        as illustrated in \Cref{fig:zheng_order}d. & \begin{enumerate}
+                                                         \item The uppermost reaches are assigned an order of one.
+                                                         \item If two or more upstreams have the highest order, the reach's order is one more than that order.
+                                                         \item Otherwise, the reach's order is the highest order of its upstreams.
+                                                     \end{enumerate}
+        \\
+        The Shreve stream ordering method,
+        as illustrated in \Cref{fig:zheng_order}e. & \begin{enumerate}
+                                                         \item The uppermost reaches are assigned an order of one.
+                                                         \item If a reach has a single upstream, its order is one plus the upstream's order\textsuperscript{1}.
+                                                         \item Otherwise, the reach's order is the arithmetic sum of the orders of its upstreams.
+                                                     \end{enumerate}
+        \\
+        \bottomrule
+    \end{tabularx}
+    \noindent{\footnotesize{\textsuperscript{1} We added this rule into the commonly used Shreve ordering method. This addition is essential to ensure that parallel routing maintains the correct upstream-to-downstream sequence.}}
+
+\end{table}
 
 \begin{figure}[H]
-	\includegraphics[width=4cm]{fig/stream_order.pdf}
-	\hspace{0.5cm}
-	\includegraphics[width=4cm]{fig/stream_order_r.pdf}
-	\hspace{0.5cm}
-	\includegraphics[width=4cm]{fig/stream_order_a.pdf}
-	\caption{Illustration of the proposed stream orders. \textbf{a} The lower limits of the stream orders. \textbf{b} The upper limits of the stream orders. \textbf{c} A feasible set of stream order values conforming the two ordering rules. \label{fig:zheng_order}}
+    \begin{center}
+        \includegraphics[width=4cm]{fig/stream_order.pdf}
+        \hspace{0.5cm}
+        \includegraphics[width=4cm]{fig/stream_order_r.pdf}
+        \hspace{0.5cm}
+        \includegraphics[width=4cm]{fig/stream_order_a.pdf}
+
+        \includegraphics[width=4cm]{fig/stream_order_strahler.pdf}
+        \hspace{0.5cm}
+        \includegraphics[width=4cm]{fig/stream_order_shreve.pdf}
+    \end{center}
+    \caption{Illustration of and comparison between different stream ordering methods. \textbf{a} Lower limits of the feasible stream order values from our proposed mehods. \textbf{b} The upper limits of the feasible stream order values from our proposed methods. \textbf{c} Another feasible set of stream order values conforming the two rules of our proposed ordering methods as described in \Cref{tab:zheng_order}. \textbf{d} The Strahler stream ordering method. \textbf{e} The Shreve stream ordering method. \label{fig:zheng_order}}
 \end{figure}
 
-In response to these challenges, our proposed method assigns stream orders directly to river reaches, enabling more granular parallelization. The Spatially Explicit Integrated Modeling System (SEIMS) model introduces a novel layer-based parallelism~\cite{liu2014EMS, liu2016EMS, zhu2019EMS}, where reaches are stratified by their topological distance from the outlet. Reaches within the same layer are processed in parallel, with layers sequenced. Yet, the allocation of a reach to a specific layer is predetermined by the river network's topography. If the number of reaches in a layer does not align with the number of processors, processor idleness ensues~\cite{liu2014EMS, zhu2019EMS}. The SEIMS model lacks the flexibility required to optimize reach distribution across layers.
+\subsection{Comparison with Existing Stream Ordering Methods}
+\label{sec:comparison}
 
-Our proposed stream ordering method offers a more adaptable alternative to the SEIMS model. The ordering is defined by two rules: (1) a reach's order falls within an integer range that is one more than the highest order of its upstream reaches and one less than the order of its downstream reach, and (2) the order value is an integer range from one up to the number of the reaches along the longest flow path within all the river networks under examination. This ordering ensures that reaches with identical orders are free from upstream-downstream dependencies, allowing for parallel processing.
+Our ordering method is inspired by several foundational studies. The mizuRoute river network routing model, for instance, employs the Strahler stream order to segment mainstreams into branches~\cite{mizukami2021JAMES}. Within each branches, reaches are sequentially simulated from upstream to downstream, while branches of the same Strahler order are processed in parallel. This approach underscores the potential of order-based parallelism. However, the Strahler ordering method, as depicted in \Cref{fig:zheng_order}d, categorizes branches rather than individual reaches, leading to a granularity too coarse for efficient parallel routing. The disparity in the number of branches across Strahler orders and in the number of reaches in a branch introduces significant variability in the computational load, posing a considerable challenge for load balancing and scalable parallel processing.
 
-The ordering rules generate a spectrum of feasible stream order values. The lower and upper bounds of the feasible values for each reach can be estimated as follows, as shown in Figure~\ref{fig:zheng_order}. The lower bounds are calculated by repeating the following two steps: (1) assigning the upmost reaches an order of one, and (2) setting a reach's order to one plus the highest upstream order. This calculation parallels the upstream-downstream strategy utilized in SEIMS~\cite[Fig. 6b]{zhu2019EMS}. Conversely, the upper bounds are determined by: (1) designating the outlet reach an order equivalent to the number of reaches along the longest flow path, and (2) subtracting one from the downstream reach's order. This calculation aligns with the downstream-upstream strategy in SEIMS~\cite[Fig. 6c]{zhu2019EMS}. The flexibility in stream order assignment provides an opportunity to optimize reach distribution, potentially minimizing processor idleness and enhancing parallel efficiency, as evidenced by our results.
+Recognizing these challenges, a method that assigns stream orders directly to river reaches could enable more granular parallelization. The Shreve stream ordering method falls into this category. However, the method is too finely grained. The excessive granularity in the context of parallel routing can be demonstrated through the following theoretical reasoning: In an ideal scenario with unlimited processors, the computation time for parallel routing would be equivalent to that of computing the reaches sequentially along the longest flow path. For instance, as shown in Figure \ref{fig:zheng_order}e, there are five reaches along the longest flow path. An ideal ordering method would assign five unique order values, and the computation time would be five times the time required to compute a single reach. However, the Shreve method assigns six unique order values. If the number of processors is unlimited, the computation time would be six times the time taken to compute a single reach. This excessive granularity of the Shreve ordering leads to a suboptimal degree of parallelization.
 
-As the number of processors increases significantly, computation time will predominantly be dictated by the reaches along the longest flow path. To further enhance parallel scalability, our proposed ordering methods can be complemented with halo reaches. By strategically inserting halo reaches upstream of select reaches along the longest flow path, the river network is effectively partitioned into subnetworks with shorter longest flow paths. The orders for these subnetworks and halo reaches are assigned according to the above proposed methods. The use of halo reaches should be judicious, reserved for scenarios where the longest flow path emerges as the primary determinant of computation time.
+The Spatially Explicit Integrated Modeling System (SEIMS) model introduces a novel layer-based parallelism\cite{liu2014EMS, liu2016EMS, zhu2019EMS}, which is considered to have an ideal granularity. The model stratifies reaches by their topological distance from the outlet. Reaches within the same layer are processed in parallel, with the layers being sequenced. Yet, the allocation of a reach to a specific layer is predetermined by the river network's topography. If the number of reaches in a layer does not match the number of processors, processor idleness ensues~\cite{liu2014EMS, zhu2019EMS}. However, the SEIMS model lacks the flexibility required to optimize reach distribution across layers.
+
+Our proposed ordering method offers a more adaptable alternative to the SEIMS model. On one hand, the lower~(\Cref{fig:zheng_order}a) and upper~(\Cref{fig:zheng_order}b) bounds of our proposed orders parallel the SEIMS layers assigned using an upstream-downstream~\cite[Fig. 6b]{zhu2019EMS} and downstream-upstream~\cite[Fig. 6c]{zhu2019EMS} strategy, respectively. Additionally, our proposed ordering method allows for variations in the stream order values between the lower and upper bounds, provided that the two rules are satisfied. This flexibility enables the optimization of reach distribution, potentially minimizing processor idleness and enhancing parallel efficiency, as evidenced in Section~\ref{sec:optimization_yangtze}.
+
+Our proposed ordering method can also incorporate the halo-reach method to further enhance parallel scalability. If the number of processors allocated for parallel river network routing is sufficiently large, the computation time will predominantly be dictated by the reaches along the longest flow path. By strategically inserting halo reaches upstream of select reaches along the longest flow path, the river network can be effectively partitioned into subnetworks with shorter longest flow paths. This partitioning will enable the application of our proposed ordering methods to each subnetwork, thereby enhancing parallel scalability. In comparison with the existing halo-reach method, the use of halo reaches with our proposed ordering method should be judicious, reserved for scenarios where the longest flow path emerges as the primary determinant of computation time. The judicious use will minimize the impact of inexact inflows to the artificially partitioned subnetworks, ensuring simulation accuracy.
 
 \subsection{A Conceptual Shared-Memory Parallel Execution Machine for River Network Routing}
 \label{sec:parallel_machine}
@@ -120,34 +182,46 @@ We disregard the time spent on fetching and potential data saving operations. Th
 During computation, there may be instances of processor idleness. This idleness is attributed to the mismatch between the number of reaches in a group and the number of available processors. Such idleness can diminish parallel efficiency and scalability. To identify potential sources of this idleness, we will calculate the computation deficiency for each individual reach. The computation deficiency of a reach is defined as the ratio of the number of idle processors during the routing of the reach to the number of total processors. If no processors are idle during the routing of a reach, the computation deficiency is zero. If idle processors are present, the computation deficiency is positive; as the number of idle processors increases, the deficiency approaches one. This metric is valuable for identifying reaches that contribute to processor idleness and for guiding the optimization of stream orders.
 
 \begin{algorithm}
-	\caption{A shared-memory parallel execution machine of river network routing.}
-	\label{alg:shared_memory}
-	\begin{algorithmic}
-		\REQUIRE There are $n$ streams. $O_i \in \mathbb{Z}^{+}$ is the order of the $i$-th stream, $i = 1\cdots{}n$. The order is sorted: $O_{i+1} - O_i \ge 0$.
-		\REQUIRE The machine has $m$ processors. $m \in \mathbb{Z}^{+}$.
-		\ENSURE The simulation of a stream must be after its upstream.
-		\STATE $i \gets 1$ \COMMENT{the first stream of a group}
-		\STATE $j \gets 1$ \COMMENT{the last stream of a group}
-		\WHILE{$i \le n$}
-		\FOR {$k = 1$ \TO $m$}
-		\IF {$i + k - 1 \le n$ \AND $O_{i + k - 1} = O_i$}
-		\STATE $j \gets i + k - 1$
-		\ENDIF
-		\ENDFOR
-		\STATE \textbf{Parallel Simulation} Simulate the streams from $i$ to $j$ in parallel.
-		\STATE $i \gets j + 1$
-		\ENDWHILE
-	\end{algorithmic}
+    \caption{A shared-memory parallel execution machine of river network routing.}
+    \label{alg:shared_memory}
+    \begin{algorithmic}
+        \REQUIRE There are $n$ streams. $O_i \in \mathbb{Z}^{+}$ is the order of the $i$-th stream, $i = 1\cdots{}n$. The order is sorted: $O_{i+1} - O_i \ge 0$.
+        \REQUIRE The machine has $m$ processors. $m \in \mathbb{Z}^{+}$.
+        \ENSURE The simulation of a stream must be after its upstream.
+        \STATE $i \gets 1$ \COMMENT{the first stream of a group}
+        \STATE $j \gets 1$ \COMMENT{the last stream of a group}
+        \WHILE{$i \le n$}
+        \FOR {$k = 1$ \TO $m$}
+        \IF {$i + k - 1 \le n$ \AND $O_{i + k - 1} = O_i$}
+        \STATE $j \gets i + k - 1$
+        \ENDIF
+        \ENDFOR
+        \STATE \textbf{Parallel Simulation} Simulate the streams from $i$ to $j$ in parallel.
+        \STATE $i \gets j + 1$
+        \ENDWHILE
+    \end{algorithmic}
 \end{algorithm}
 
-\section{Study Domain and Data}
+\section{Experimental Design}
 \label{sec:domain}
 
 We applied the proposed stream ordering and order-based parallel routing methods to the Yangtze River, the largest river network in China. The river network is characterized by full connectivity among its reaches. This case provides a rigorous evaluation of out proposed methods at a substantial scale and under challenging conditions for parallel routing.
 
-For the delineation of the Yangtze River network, we employed the Multi-Error-Removed Improved-Terrain Hydrography (MERIT-Hydro) dataset~\cite{yamazaki2017GRL, yamazaki2019WRR}, a global hydrography dataset with a 3 arc-second spatial resolution. This dataset includes a hydrologically adjusted digital elevation model, an eight-direction flow model, flow accumulation area, river channel width, and height above the nearest drainage. Our delineation process utilized the flow accumulation area and the eight-direction flow model. The threshold for the flow accumulation area was set at 20 km² for catchment delineation and 10 km² for river centerline extraction. The extraction yielded a single river network comprising 53,600 reaches.
+For the delineation of the Yangtze River network, we employed the Multi-Error-Removed Improved-Terrain Hydrography (MERIT-Hydro) dataset~\cite{yamazaki2017GRL, yamazaki2019WRR}, a global hydrography dataset with a 3 arc-second spatial resolution. This dataset includes a hydrologically adjusted digital elevation model, an eight-direction flow model, flow accumulation area, river channel width, and height above the nearest drainage. Our delineation process utilized the flow accumulation area and the eight-direction flow model. The threshold for the flow accumulation area was set at 20 km\textsuperscript{2} for catchment delineation and 10 km\textsuperscript{2} for river centerline extraction. The extraction yielded a single river network comprising 53,600 reaches (tributaries), which are shown in \Cref{fig:domain}. We utilized the connectivity of the extracted river centerlines for subsequent analyses and employed the river geometry for graphical illustrations. The instructions for accessing the data are detailed in the supplementary materials.
 
-\section{Results}
+\begin{figure}[H]
+    \includegraphics[width=14 cm]{fig/domain.pdf}
+    \caption{Yangtze River Basin Network delineated from the MERIT-Hydro dataset. The black lines outline the national boundaries or coastal lines of China, providing a geographical context. The color-coded lines depict the river reaches. Each color indicates the total number of reaches, encompassing the current reach and all upstream reaches \label{fig:domain}}
+\end{figure}
+
+Figure~\ref{fig:workflow} shows the workflow of this study. Initially, in Section~\ref{sec:stream_order_yangtze}, we assigned the Strahler, Shreve, and the upper and lower bounds of our proposed stream orders to the Yangtze River network, adhering to the rules detailed in Table~\ref{tab:zheng_order} and depicted in Figure~\ref{fig:zheng_order}. Subsequently, in Section~\ref{sec:parallelization_yangtze}, we assessed the computational performance of the Shreve order and the proposed stream orders' upper and lower bounds using a conceptual shared-memory parallel execution machine described in Section~\ref{sec:parallel_machine}. We measured this performance in terms of parallel speedup and efficiency and evaluated its scalability with an increasing number of processors. We also pinpointed hotspots of computational deficiencies. Lastly, in Sections~\ref{sec:optimization_yangtze} and \ref{sec:breakdown_yangtze}, we demonstrated that our proposed stream ordering method can be optimized, guided by the measured computation deficiencies, and can incorporate halo reaches into the longest flow path. This incorporation can significantly enhance computational performance and parallel scalability.
+
+\begin{figure}[H]
+    \includegraphics[width=10.5 cm]{fig/workflow.pdf}
+    \caption{Diagram of workflow \label{fig:workflow}}
+\end{figure}
+
+\section{Results and Discussion}
 \label{sec:results}
 
 \subsection{Stream Orders for the Yangtze River Network}
@@ -155,18 +229,18 @@ For the delineation of the Yangtze River network, we employed the Multi-Error-Re
 
 \Cref{fig:spatial_distribution_yangtze} illustrates the spatial distribution of the proposed stream orders in the Yangtze River basin, juxtaposed with those of the Strahler and Shreve stream orders. The Strahler system exhibits a narrow range of order values, with a maximum value of eight observed in this case. This limited range restricts its application to parallelizing branches, akin to the mizuRoute model~\cite{mizukami2021JAMES}, rather than individual reaches. The coarse granularity of the Strahler order poses challenges for achieving effective load balancing.
 
-In contrast, both the Shreve order and our proposed stream order offer adequate granularity for order-based parallel routing. It is important to note that the Shreve order is applicable for parallel routing only when no upstream-downstream pairs share the same order value, a condition that is coincidentally met in this study. However, the Shreve order spans a range from 1 to 26,828, which is excessively broad. As depicted in \Cref{fig:cumulative_count_yangtze}, 2,378 unique Shreve order values are assigned to only one reach. This extensive range, coupled with the scarcity of reaches sharing the same order value, can lead to inefficiencies in parallelization.
+In contrast, both the Shreve order and our proposed stream order offer sufficient granularity for order-based parallel routing. It is important to note that the Shreve order is applicable for parallel routing only when no upstream-downstream pairs share the same order value, a condition that is coincidentally met in this study. However, the Shreve order spans a range from 1 to 26,828, which is excessively broad. As depicted in \Cref{fig:cumulative_count_yangtze}, 2,378 unique Shreve order values are assigned to only one reach. This indicates an excessive granularity that undermines the scalability of the parallel routing. No matter how many processors are allocated, only one can work at a time while the others remain idle, waiting for the routing on the reach to be completed. This extensive range, coupled with the scarcity of reaches sharing the same order value, can lead to inefficiencies in parallelization.
 
 \Cref{fig:spatial_distribution_yangtze}c and \Cref{fig:spatial_distribution_yangtze}d display the spatial distribution of the lower and upper bounds of our proposed order family, respectively. These bounds range from 1 to 1,042, which corresponds to the number of reaches along the longest flow path. The upper bound demonstrates an even distribution of order values throughout the river network, while the lower bound shows a greater concentration in the lower order values. For the upper bound, a limited number of order values are assigned to a small set of reaches, as shown in \Cref{fig:cumulative_count_yangtze}. The balanced distribution of order values, along with the adequate granularity and the presence of sufficient reaches sharing the same order value, render the upper bounds of our proposed stream order family particularly well-suited for parallel river network routing.
 
 \begin{figure}[H]
-	\includegraphics[width=10.5 cm]{fig/spatial_distribution_yangtze.pdf}
-	\caption{Spatial distribution of stream orders over the Yangtze River basin. \textbf{a} The Strahler order. \textbf{b} The Shreve order. \textbf{c} The lower bounds of the proposed order family. \textbf{d} The upper bounds of the proposed order family. \label{fig:spatial_distribution_yangtze}}
+    \includegraphics[width=10.5 cm]{fig/spatial_distribution_yangtze.pdf}
+    \caption{Spatial distribution of stream orders over the Yangtze River basin. \textbf{a} The Strahler order. \textbf{b} The Shreve order. \textbf{c} The lower bounds of the proposed order family. \textbf{d} The upper bounds of the proposed order family. \label{fig:spatial_distribution_yangtze}}
 \end{figure}
 
 \begin{figure}[H]
-	\includegraphics[width=13.5 cm]{fig/stream_count_yangtze.pdf}
-	\caption{The count of stream order values with a limited number of reaches. For the sake of clarity, only those stream orders with 16 or fewer reaches are illustrated. \label{fig:cumulative_count_yangtze}}
+    \includegraphics[width=13.5 cm]{fig/stream_count_yangtze.pdf}
+    \caption{The count of stream order values with a limited number of reaches. For the sake of clarity, only those stream orders with 16 or fewer reaches are illustrated. \label{fig:cumulative_count_yangtze}}
 \end{figure}
 
 \subsection{Parallelization Performance, Scalability, and Hotspot of Computation Deficiencies}
@@ -183,8 +257,8 @@ The lower bounds of the proposed stream order family demonstrate better speedup 
 The upper bounds demonstrated the best performance and scalability among the three methods. Efficiency is maintained above 80\% when the number of processors is 25 or fewer. As the number of processors increases, the speedup rapidly saturates, closely approaching the theoretical limits at a processor count of 141. These results indicate that the upper bounds of the proposed order family are particularly well-suited for parallel river network routing. The scalability of the upper bounds is either comparable to or surpasses those found in the existing literature~\cite{mizukami2021JAMES, liu2023JH}. It is important to note that scalability in this study is measured using a conceptual parallel execution model rather than with a real-world implementation.
 
 \begin{figure}[H]
-	\includegraphics[width=13.5cm]{fig/speedup_yangtze.pdf}
-	\caption{Parallelization speedup (\textbf{a}) and efficiency (\textbf{b}) for the Shreve orders and the proposed stream orders, respectively. The solid black lines represent the ideal speedup or efficiency under conditions of perfect scaling. The dashed black lines indicate the limits imposed by the upstream-to-downstream sequentiality along the longest flow path. \label{fig:scalability_yangtze}}
+    \includegraphics[width=13.5cm]{fig/speedup_yangtze.pdf}
+    \caption{Parallelization speedup (\textbf{a}) and efficiency (\textbf{b}) for the Shreve orders and the proposed stream orders, respectively. The solid black lines represent the ideal speedup or efficiency under conditions of perfect scaling. The dashed black lines indicate the limits imposed by the upstream-to-downstream sequentiality along the longest flow path. \label{fig:scalability_yangtze}}
 \end{figure}
 
 \Cref{fig:computation_deficiency_yangtze} and \Cref{fig:computation_deficiency_hist_yangtze} respectively illustrate the spatial distribution and the histogram of computation deficiencies within the Yangtze River network. These deficiencies were measured using 51 processors, the point at which the ideal speedup aligns with the theoretical limit. For the Shreve order and the lower bounds of the proposed stream order family, reaches with significant computation deficiencies are primarily located in the mainstreams. This inefficiency arises from the limited number of mainstream reaches that share the same order values. In contrast, due to the coarse granularity of the upper bounds, the likelihood of computation deficiencies occurring is lower, and they are more concentrated.
@@ -192,16 +266,16 @@ The upper bounds demonstrated the best performance and scalability among the thr
 The upper bounds exhibit a markedly different pattern, with reaches showing high computation deficiencies predominantly found in the upstream reaches, especially in the headwater regions. The greater number of upstream reaches, compared to mainstream reaches, makes it more probable that they will share order values. This sharing reduces the probability of processor idleness and computation deficiencies. The contrasting patterns observed between the lower and upper bounds suggest that there is considerable potential for optimizing the order values to improve parallel efficiency.
 
 \begin{figure}[H]
-	\includegraphics[width=11.5cm]{fig/computation_deficiency_yangtze.pdf}
-	\caption{Computation deficiency of routing each individual reach observed at a processor count of 51 for the Yangtze River network. \label{fig:computation_deficiency_yangtze}}
+    \includegraphics[width=11.5cm]{fig/computation_deficiency_yangtze.pdf}
+    \caption{Computation deficiency of routing each individual reach observed at a processor count of 51 for the Yangtze River network. \label{fig:computation_deficiency_yangtze}}
 \end{figure}
 
 \begin{figure}[H]
-	\includegraphics[width=13.5cm]{fig/computation_cost_hist_yangtze.pdf}
-	\caption{Histogram of the computation deficiency for the Yangtze River network observed at a processor count of 51. \label{fig:computation_deficiency_hist_yangtze}}
+    \includegraphics[width=13.5cm]{fig/computation_cost_hist_yangtze.pdf}
+    \caption{Histogram of the computation deficiency for the Yangtze River network observed at a processor count of 51. \label{fig:computation_deficiency_hist_yangtze}}
 \end{figure}
 
-\subsection{Optimization of the Stream Order in between the Two Bounds}
+\subsection{Performance-Guided Optimization of the Stream Order in between the Two Bounds}
 \label{sec:optimization_yangtze}
 
 We show that the stream order can be optimized using a simple strategy that iteratively minimizes total computation time. The iterative optimization operates only on the reaches where the upper and lower bounds differ and starts with the upper bounds of the stream order family, which show the best parallel performance yet. In each iteration, the reach with the most significant computation deficiency is targeted, with its order being reduced by one. Concurrently, appropriate adjustments are made to the orders of upstream reaches to ensure adherence to the two rules outlined in \Cref{sec:stream_order}.
@@ -209,15 +283,15 @@ We show that the stream order can be optimized using a simple strategy that iter
 \Cref{fig:optimization_iteration_yangtze}a illustrates the reduction in total computation time at each optimization iteration. The total computation time experiences a rapid decline during the initial iterations, followed by a gradual stabilization. The stream orders that yield the minimum total computation time are then selected for further analysis. A comparison in the histograms of computation deficiencies between the optimized orders and the upper bounds of the stream order family is presented in \Cref{fig:optimization_iteration_yangtze}b. The optimization results in a slight reduction in the number of reaches with high computation deficiencies. \Cref{fig:optimization_iteration_yangtze}c displays the spatial distribution of computation deficiencies, showing that the optimization strategy effectively reduces these deficiencies, particularly in the middle reaches. However, the headwater and downstream regions exhibit negligible changes, indicating that a more advanced optimization strategy may be necessary to achieve enhanced parallel performance uniformly across the river network.
 
 \begin{figure}[H]
-	\includegraphics[width=13.5 cm]{fig/optimization_iteration_yangtze.pdf}
-	\caption{Optimization of the stream order. \textbf{a} Decrease in the total computation time with the optimization iteration. \textbf{b} Comparison in the histogram of the computation deficiency for the optimized stream orders and the upper bounds of the stream order family. \textbf{c} Spatial distribution of the computation deficiency. \label{fig:optimization_iteration_yangtze}}
+    \includegraphics[width=13.5 cm]{fig/optimization_iteration_yangtze.pdf}
+    \caption{Optimization of the stream order. \textbf{a} Decrease in the total computation time with the optimization iteration. \textbf{b} Comparison in the histogram of the computation deficiency for the optimized stream orders and the upper bounds of the stream order family. \textbf{c} Spatial distribution of the computation deficiency. \label{fig:optimization_iteration_yangtze}}
 \end{figure}
 
 \Cref{fig:order_optmization_yangtze} compares the upper bounds and the optimized stream orders for different number of processors. The optimized stream orders are obtained from iterations five times of the number of processors. The optimized stream orders exhibit a slight but consistent improvement in parallel speedup and efficiency, when the number of processors is limited. When the parallel performance of the upper bounds have already hit theoretical limits imposed by the sequentiality along the longest flow path, the optimized stream orders show no further improvement. These results suggest that relaxation of the upstream-to-downstream relationship is necessary for better parallel performance when the processor count is significant enough.
 
 \begin{figure}[H]
-	\includegraphics[width=12.5 cm]{fig/speedup_opt_yangtze.pdf}
-	\caption{Same as \Cref{fig:scalability_yangtze} but for the optimized stream orders and the upper bounds of the proposed order family. \label{fig:order_optmization_yangtze}}
+    \includegraphics[width=12.5 cm]{fig/speedup_opt_yangtze.pdf}
+    \caption{Same as \Cref{fig:scalability_yangtze} but for the optimized stream orders and the upper bounds of the proposed order family. \label{fig:order_optmization_yangtze}}
 \end{figure}
 
 
@@ -231,29 +305,28 @@ In this section, we introduce breakpoints along the longest flow path. The fully
 \Cref{fig:scalability_breakdown_yangtze} illustrates the parallel speedup and efficiency of the stream orders for the Yangtze River network with one and three breakpoints. As discussed, introducing breakpoints effectively raises the saturating parallel performance by shortening the longest flow path. The saturating parallel speedup can now exceed the theoretical limits imposed by the upstream-to-downstream sequentiality along the longest flow path. Moreover, the improvement in parallel speedup and efficiency is consistent across all different allocations of processor numbers. An 80\% parallel efficiency can be maintained for 40 processors with one breakpoint and for 77 processors with three breakpoints in the Yangtze River network. Performance saturation occurs when the number of processors exceeds approximately 150 and 280 for the network with one and three breakpoints, respectively. The enhancements in parallelization scalability are significant.
 
 \begin{figure}[H]
-	\includegraphics[width=10.5 cm]{fig/spatial_distribution_breakdown_yangtze.pdf}
-	\caption{Same as \Cref{fig:spatial_distribution_yangtze}d, but for the stream orders with one (\textbf{a}) and three (\textbf{b}) breaks along the longest flow path. Red dots denote the breakpoints. The halo reaches are not shown for clarity. \label{fig:spatial_distribution_breakdown_yangtze}}
+    \includegraphics[width=10.5 cm]{fig/spatial_distribution_breakdown_yangtze.pdf}
+    \caption{Same as \Cref{fig:spatial_distribution_yangtze}d, but for the stream orders with one (\textbf{a}) and three (\textbf{b}) breaks along the longest flow path. Red dots denote the breakpoints. The halo reaches are not shown for clarity. \label{fig:spatial_distribution_breakdown_yangtze}}
 \end{figure}
 
 \begin{figure}[H]
-	\includegraphics[width=13.5cm]{fig/speedup_bd_yangtze.pdf}
-	\caption{Same as \Cref{fig:scalability_yangtze}, but for the upper bounds of the order family with two (the orange lines) or four (the blue lines) breaks along the longest flow path. \label{fig:scalability_breakdown_yangtze}}
+    \includegraphics[width=13.5cm]{fig/speedup_bd_yangtze.pdf}
+    \caption{Same as \Cref{fig:scalability_yangtze}, but for the upper bounds of the order family with two (the orange lines) or four (the blue lines) breaks along the longest flow path. \label{fig:scalability_breakdown_yangtze}}
 \end{figure}
 
-\section{Discussion and Conclusions}
+
+\section{Conclusions}
 \label{sec:conclusions}
 
 In conclusion, this study introduces a novel family of stream orders and an associated order-based parallel routing method, designed to preserve the upstream-to-downstream flow sequence while facilitating parallel processing. The application of these methods within the Yangtze River basin has yielded superior performance and scalability, outperforming current strategies.
 
 The potential for future research is abundant, with the optimization of stream orders and strategic placement of breakpoints offering promising avenues for further enhancing parallel performance. The findings of this study lay a solid theoretical groundwork for subsequent investigations in this domain.
 
-Furthermore, the convergence of high-performance computing advancements and the sophisticated numerical methods introduced herein is poised to significantly advance land surface and Earth system modeling. By enabling the practical integration of large-domain fine-scale river network routing, forthcoming models will be better positioned to simulate intricate hydrological processes, thereby enabling more precise and actionable forecasts. This research represents a pivotal step towards the development of more accurate and efficient modeling frameworks.
+This study represents a pivotal step towards the development of more efficient modeling frameworks. The convergence of high-performance computing advancements with the sophisticated numerical methods introduced in this research is poised to significantly enhance large-domain and fine-scale flood forecasting capabilities. Future models, informed by our proposed methods, will be better equipped to capture the intricacies of river network dynamics, thereby enabling more precise and actionable flood forecasts.
 
 \vspace{6pt}
 
 % %% supplementary
-%\supplementary{The following supporting information can be downloaded at:  \linksupplementary{s1}, Figure S1: title; Table S1: title; Video S1: title.}
-
 \authorcontributions{Conceptualization: H.Z.; methodology: H.Z.; software: H.Z.; validation: C.W. and Z.L.; formal analysis: X.Y.; investigation: X.Y.; resources: H.Y.; data curation: H.Z.; writing---original draft preparation: X.Y.; writing---review and editing: C.W. and Z.L.; visualization: X.Y. and H.Y.; supervision: H.Z.; project administration: H.Y.; funding acquisition: H.Y. All authors have read and agreed to the published version of the manuscript.}
 
 \funding{This research was funded by the National Natural Science Foundation of China (grant number 42275178 and 42075165).}
@@ -263,12 +336,12 @@ Furthermore, the convergence of high-performance computing advancements and the 
 \conflictsofinterest{The authors declare no conflicts of interest.}
 
 \begin{adjustwidth}{-\extralength}{0cm}
-	%\printendnotes[custom] % Un-comment to print a list of endnotes
+    %\printendnotes[custom] % Un-comment to print a list of endnotes
 
-	\reftitle{References}
+    \reftitle{References}
 
-	\bibliography{references.bib}
+    \bibliography{references.bib}
 
-	\PublishersNote{}
+    \PublishersNote{}
 \end{adjustwidth}
 \end{document}
